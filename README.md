@@ -22,7 +22,13 @@ Todas as functions estão em [`function_app.py`](function_app.py).
 | `echo` | HTTP trigger (GET) | rota `/api/echo`, auth anônima | Recebe o parâmetro `mensagem` pela URL e o imprime na tela, prefixado pelo texto identificador `TAPRB-2026 Parametro recebido:`. |
 | `timer_chama_http` | Timer trigger | `0 */2 * * * *` (a cada 2 minutos) | Faz uma chamada HTTP GET para a function `echo`, enviando uma mensagem gerada, e registra no log a resposta devolvida. |
 
-A URL chamada por `timer_chama_http` vem da app setting **`TARGET_FUNCTION_URL`**; se ela não estiver definida, o padrão é `http://localhost:7071/api/echo`.
+A URL chamada por `timer_chama_http` é resolvida em três níveis, nesta ordem:
+
+1. app setting **`TARGET_FUNCTION_URL`**, se estiver definida — permite apontar para qualquer outro Function App sem alterar o código;
+2. senão, é montado a partir de **`WEBSITE_HOSTNAME`**, variável que o Azure injeta automaticamente no Function App (`https://<seu-app>.azurewebsites.net`) — ou seja, depois de publicar não é preciso configurar nada;
+3. senão, `http://localhost:7071`, para execução local.
+
+A função `build_domain()` devolve apenas o domínio; a rota (`/api/echo`) é concatenada por quem chama.
 
 ## Pré-requisitos
 
@@ -94,11 +100,13 @@ git push -u origin main
 func azure functionapp publish <nome-do-function-app>
 ```
 
-Depois de publicar, defina a app setting `TARGET_FUNCTION_URL` apontando para a URL pública da function `echo`:
+Não é necessária nenhuma configuração extra: a `timer_chama_http` monta a URL da `echo` a partir da `WEBSITE_HOSTNAME`, que o próprio Azure define.
+
+Se quiser apontar a chamada para outro Function App, defina a app setting `TARGET_FUNCTION_URL`, que tem prioridade sobre a montagem automática:
 
 ```bash
 az functionapp config appsettings set \
   --name <nome-do-function-app> \
   --resource-group <grupo-de-recursos> \
-  --settings TARGET_FUNCTION_URL="https://<nome-do-function-app>.azurewebsites.net/api/echo"
+  --settings TARGET_FUNCTION_URL="https://<outro-function-app>.azurewebsites.net"
 ```

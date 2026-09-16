@@ -8,6 +8,16 @@ import requests
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 
+def build_domain() -> str:
+    domain = os.environ.get("TARGET_FUNCTION_URL")
+    if domain:
+        return domain.rstrip("/")
+
+    hostname = os.environ.get("WEBSITE_HOSTNAME", "localhost:7071")
+    scheme = "http" if hostname.startswith("localhost") else "https"
+    return f"{scheme}://{hostname}"
+
+
 @app.timer_trigger(
     schedule="0 */1 * * * *",
     arg_name="timer",
@@ -16,10 +26,10 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 )
 def timer_log(timer: func.TimerRequest) -> None:
     if timer.past_due:
-        logging.warning("execucao atrasada (past due)")
+        logging.warning("Execução atrasada (past due)")
 
     agora = datetime.now(timezone.utc).isoformat()
-    logging.info("Ola do timer trigger! Executado em %s (UTC)", agora)
+    logging.info("Executado em %s (UTC)", agora)
 
 
 @app.route(route="echo", methods=["GET"])
@@ -27,16 +37,16 @@ def echo(req: func.HttpRequest) -> func.HttpResponse:
     mensagem = req.params.get("mensagem")
 
     if not mensagem:
-        logging.warning("chamada sem o parametro 'mensagem'")
+        logging.warning("Chamada sem o parâmetro 'mensagem'")
         return func.HttpResponse(
-            "Informe o parametro na URL. Exemplo: /api/echo?mensagem=ola",
+            "Informe o parâmetro na URL. Exemplo: /api/echo?mensagem=ola",
             status_code=400,
             mimetype="text/plain",
         )
 
-    logging.info("parametro recebido: %s", mensagem)
+    logging.info("Parâmetro recebido: %s", mensagem)
     return func.HttpResponse(
-        f"TAPRB-2026 Parametro recebido: {mensagem}",
+        f"Parâmetro recebido: {mensagem}",
         status_code=200,
         mimetype="text/plain",
     )
@@ -50,17 +60,17 @@ def echo(req: func.HttpRequest) -> func.HttpResponse:
 )
 def timer_chama_http(timer: func.TimerRequest) -> None:
     if timer.past_due:
-        logging.warning("execucao atrasada (past due)")
+        logging.warning("Execução atrasada")
 
-    url = os.environ.get("TARGET_FUNCTION_URL", "http://localhost:7071/api/echo")
+    url = f"{build_domain()}/api/echo"
     mensagem = f"ping-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
 
-    logging.info("chamando %s com mensagem=%s", url, mensagem)
+    logging.info("Chamando %s com mensagem=%s", url, mensagem)
 
     try:
         resposta = requests.get(url, params={"mensagem": mensagem}, timeout=10)
     except requests.RequestException as erro:
-        logging.error("falha ao chamar %s: %s", url, erro)
+        logging.error("Falha ao chamar %s: %s", url, erro)
         return
 
     logging.info(
