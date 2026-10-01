@@ -31,13 +31,15 @@ def extract_chamado(myTimer: func.TimerRequest) -> None:
     #fazer select na tabela itsm.chamado
     #exibir os dados na tela
     
+    logging.info("Iniciando a extração de dados do banco de dados...")
+    
     try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
         logging.info("Conexão com o banco de dados estabelecida com sucesso.")
         
         # Executar a consulta SQL para extrair os dados
-        query = "SELECT * FROM Chamado"
+        query = "SELECT  s.name AS schema_name, t.name AS table_name FROM sys.tables AS t INNER JOIN sys.schemas AS s ON t.schema_id = s.schema_id ORDER BY s.name, t.name;"
         cursor.execute(query)
         rows = cursor.fetchall()
         
@@ -45,5 +47,5 @@ def extract_chamado(myTimer: func.TimerRequest) -> None:
         for row in rows:
             logging.info(f"Chamado ID: {row[0]}, Descrição: {row[1]}") 
     except pyodbc.Error as e:
-        pass
-    
+        logging.error(f"Erro ao conectar ao banco de dados: {e}")
+    logging.info("Extração de dados concluída com sucesso.")   
