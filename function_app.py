@@ -1,80 +1,51 @@
 import logging
-import os
-from datetime import datetime, timezone
-
 import azure.functions as func
-import requests
+import os
+import pyodbc
 
-app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+app = func.FunctionApp()
 
+@app.timer_trigger(schedule="0 * * * * *", arg_name="myTimer", run_on_startup=False,
+              use_monitor=False) 
+def extract_chamado(myTimer: func.TimerRequest) -> None:
 
-def build_domain() -> str:
-    domain = os.environ.get("TARGET_FUNCTION_URL")
-    if domain:
-        return domain.rstrip("/")
-
-    hostname = os.environ.get("WEBSITE_HOSTNAME", "localhost:7071")
-    scheme = "http" if hostname.startswith("localhost") else "https"
-    return f"{scheme}://{hostname}"
-
-
-@app.timer_trigger(
-    schedule="0 */1 * * * *",
-    arg_name="timer",
-    run_on_startup=False,
-    use_monitor=False,
-)
-def timer_log(timer: func.TimerRequest) -> None:
-    if timer.past_due:
-        logging.warning("Execução atrasada (past due)")
-
-    agora = datetime.now(timezone.utc).isoformat()
-    logging.info("Executado em %s (UTC)", agora)
+    host = os.getenv("HOST")
+    database = os.getenv("DATABASE")
+    user = os.getenv("USER")
+    password = os.getenv("PASSWORD")
 
 
-@app.route(route="echo", methods=["GET"])
-def echo(req: func.HttpRequest) -> func.HttpResponse:
-    mensagem = req.params.get("mensagem")
-
-    if not mensagem:
-        logging.warning("Chamada sem o parâmetro 'mensagem'")
-        return func.HttpResponse(
-            "Informe o parâmetro na URL. Exemplo: /api/echo?mensagem=ola",
-            status_code=400,
-            mimetype="text/plain",
-        )
-
-    logging.info("Parâmetro recebido: %s", mensagem)
-    return func.HttpResponse(
-        f"Parâmetro recebido: {mensagem}",
-        status_code=200,
-        mimetype="text/plain",
+    #criar a conexao com o banco de dados
+    conn_str = (
+        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"SERVER={host};"
+        f"DATABASE={database};"
+        f"UID={user};"
+        f"PWD={password};"
+        "Encrypt=yes;"
+        "TrustServerCertificate=no;"
+        "Connection Timeout=30;"
     )
-
-
-@app.timer_trigger(
-    schedule="0 */2 * * * *",
-    arg_name="timer",
-    run_on_startup=True,
-    use_monitor=False,
-)
-def timer_chama_http(timer: func.TimerRequest) -> None:
-    if timer.past_due:
-        logging.warning("Execução atrasada")
-
-    url = f"{build_domain()}/api/echo"
-    mensagem = f"ping-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-
-    logging.info("Chamando %s com mensagem=%s", url, mensagem)
-
+    
+    #Estabelece a conexão com o banco de dados usando pyodbc
+    #fazer select na tabela itsm.chamado
+    #exibir os dados na tela
+    
+    logging.info("Iniciando a extração de dados do banco de dados...")
+    
     try:
-        resposta = requests.get(url, params={"mensagem": mensagem}, timeout=10)
-    except requests.RequestException as erro:
-        logging.error("Falha ao chamar %s: %s", url, erro)
-        return
-
-    logging.info(
-        "status=%s resposta=%s",
-        resposta.status_code,
-        resposta.text,
-    )
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        logging.info("Conexão com o banco de dados estabelecida com sucesso.")
+        
+        # Executar a consulta SQL para extrair os dados
+        query = "SELECT  s.name AS schema_name, t.name AS table_name FROM sys.tables AS t INNER JOIN sys.schemas AS s ON t.schema_id = s.schema_id ORDER BY s.name, t.name;"
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        
+        # Processar os resultados
+        for row in rows:
+            logging.info(f"Chamado ID: {row[0]}, Descrição: {row[1]}") 
+    except pyodbc.Error as e:
+        logging.error(f"Erro ao conectar ao banco de dados: {e}")
+    logging.info("Extração de dados concluída com sucesso.")   
