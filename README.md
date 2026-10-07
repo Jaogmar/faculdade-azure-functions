@@ -14,13 +14,34 @@ Projeto da faculdade explorando as Azure Functions desenvolvidas em **Python**.
 
 ## Functions
 
-Todas as functions estão em [`function_app.py`](function_app.py).
+Todas as functions estão em [`function_app.py`](function_app.py). Cada uma é um Timer trigger que roda a cada 5 minutos (`0 */5 * * * *`), extrai uma tabela do schema `itsm` e registra os registros no log.
 
-| Function | Gatilho | Configuração | O que faz |
-| --- | --- | --- | --- |
-| `timer_log` | Timer trigger | `0 */1 * * * *` (a cada 1 minuto) | Imprime apenas um log no terminal com o horário da execução. |
-| `echo` | HTTP trigger (GET) | rota `/api/echo`, auth anônima | Recebe o parâmetro `mensagem` pela URL e o imprime na tela, prefixado pelo texto identificador `TAPRB-2026 Parametro recebido:`. |
-| `timer_chama_http` | Timer trigger | `0 */2 * * * *` (a cada 2 minutos) | Faz uma chamada HTTP GET para a function `echo`, enviando uma mensagem gerada, e registra no log a resposta devolvida. |
+| Function | Gatilho | Tabela |
+| --- | --- | --- |
+| `extract_analista` | Timer (`0 */5 * * * *`) | `itsm.analista` |
+| `extract_categoria` | Timer (`0 */5 * * * *`) | `itsm.categoria` |
+| `extract_chamado` | Timer (`0 */5 * * * *`) | `itsm.chamado` |
+| `extract_chamado_sla` | Timer (`0 */5 * * * *`) | `itsm.chamado_sla` |
+| `extract_chamado_status_historico` | Timer (`0 */5 * * * *`) | `itsm.chamado_status_historico` |
+| `extract_cliente_organizacao` | Timer (`0 */5 * * * *`) | `itsm.cliente_organizacao` |
+| `extract_csat_avaliacao` | Timer (`0 */5 * * * *`) | `itsm.csat_avaliacao` |
+| `extract_fila` | Timer (`0 */5 * * * *`) | `itsm.fila` |
+| `extract_sla` | Timer (`0 */5 * * * *`) | `itsm.sla` |
+| `extract_solicitante` | Timer (`0 */5 * * * *`) | `itsm.solicitante` |
+
+## Variáveis de ambiente
+
+As credenciais do banco **não** ficam no código. Elas são lidas das variáveis de ambiente abaixo:
+
+| Variável | Descrição |
+| --- | --- |
+| `DB_HOST` | Servidor SQL (ex.: `<servidor>.database.windows.net`) |
+| `DB_NAME` | Nome do banco |
+| `DB_USER` | Usuário |
+| `DB_PASSWORD` | Senha |
+
+- **Local:** copie `local.settings.json.example` para `local.settings.json` (que está no `.gitignore`) e preencha os valores.
+- **Azure:** configure em *Function App → Settings → Environment variables (App settings)*.
 
 ## Diagrama
 

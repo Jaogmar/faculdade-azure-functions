@@ -1,51 +1,112 @@
+import json
 import logging
-import azure.functions as func
 import os
+
+import azure.functions as func
 import pyodbc
 
 app = func.FunctionApp()
 
-@app.timer_trigger(schedule="0 * * * * *", arg_name="myTimer", run_on_startup=False,
-              use_monitor=False) 
-def extract_chamado(myTimer: func.TimerRequest) -> None:
-
-    host = os.getenv("HOST")
-    database = os.getenv("DATABASE")
-    user = os.getenv("USER")
-    password = os.getenv("PASSWORD")
+VARIAVEIS_BANCO = ("DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD")
+AGENDAMENTO = "0 */5 * * * *"  # a cada 5 minutos
 
 
-    #criar a conexao com o banco de dados
+def _get_connection() -> pyodbc.Connection:
+    # As credenciais vem apenas das variaveis de ambiente
+    # (local.settings.json localmente / Application settings no Azure)
+    faltando = [nome for nome in VARIAVEIS_BANCO if not os.getenv(nome)]
+    if faltando:
+        raise RuntimeError(f"Variaveis de ambiente nao configuradas: {', '.join(faltando)}")
+
     conn_str = (
         "DRIVER={ODBC Driver 18 for SQL Server};"
-        f"SERVER={host};"
-        f"DATABASE={database};"
-        f"UID={user};"
-        f"PWD={password};"
+        f"SERVER={os.environ['DB_HOST']};"
+        f"DATABASE={os.environ['DB_NAME']};"
+        f"UID={os.environ['DB_USER']};"
+        f"PWD={os.environ['DB_PASSWORD']};"
         "Encrypt=yes;"
         "TrustServerCertificate=no;"
         "Connection Timeout=30;"
     )
-    
-    #Estabelece a conexão com o banco de dados usando pyodbc
-    #fazer select na tabela itsm.chamado
-    #exibir os dados na tela
-    
-    logging.info("Iniciando a extração de dados do banco de dados...")
-    
+    return pyodbc.connect(conn_str)
+
+
+def _extrair_tabela(nome_tabela: str) -> None:
+    # O nome da tabela vem fixo de cada function
+    logging.info(f"Iniciando a extração da tabela itsm.{nome_tabela}...")
+
     try:
-        conn = pyodbc.connect(conn_str)
-        cursor = conn.cursor()
-        logging.info("Conexão com o banco de dados estabelecida com sucesso.")
-        
-        # Executar a consulta SQL para extrair os dados
-        query = "SELECT  s.name AS schema_name, t.name AS table_name FROM sys.tables AS t INNER JOIN sys.schemas AS s ON t.schema_id = s.schema_id ORDER BY s.name, t.name;"
-        cursor.execute(query)
-        rows = cursor.fetchall()
-        
-        # Processar os resultados
-        for row in rows:
-            logging.info(f"Chamado ID: {row[0]}, Descrição: {row[1]}") 
+        conn = _get_connection()
+    except RuntimeError as e:
+        logging.error(str(e))
+        return
     except pyodbc.Error as e:
         logging.error(f"Erro ao conectar ao banco de dados: {e}")
-    logging.info("Extração de dados concluída com sucesso.")   
+        return
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT * FROM itsm.{nome_tabela};")
+        colunas = [coluna[0] for coluna in cursor.description]
+        rows = cursor.fetchall()
+    except pyodbc.Error as e:
+        logging.error(f"Erro ao extrair a tabela itsm.{nome_tabela}: {e}")
+        return
+    finally:
+        conn.close()
+
+    for row in rows:
+        registro = dict(zip(colunas, row))
+        logging.info(f"itsm.{nome_tabela}: {json.dumps(registro, default=str, ensure_ascii=False)}")
+
+    logging.info(f"Extração da tabela itsm.{nome_tabela} concluída: {len(rows)} registros.")
+
+
+@app.timer_trigger(schedule=AGENDAMENTO, arg_name="myTimer", run_on_startup=False, use_monitor=False)
+def extract_analista(myTimer: func.TimerRequest) -> None:
+    _extrair_tabela("analista")
+
+
+@app.timer_trigger(schedule=AGENDAMENTO, arg_name="myTimer", run_on_startup=False, use_monitor=False)
+def extract_categoria(myTimer: func.TimerRequest) -> None:
+    _extrair_tabela("categoria")
+
+
+@app.timer_trigger(schedule=AGENDAMENTO, arg_name="myTimer", run_on_startup=False, use_monitor=False)
+def extract_chamado(myTimer: func.TimerRequest) -> None:
+    _extrair_tabela("chamado")
+
+
+@app.timer_trigger(schedule=AGENDAMENTO, arg_name="myTimer", run_on_startup=False, use_monitor=False)
+def extract_chamado_sla(myTimer: func.TimerRequest) -> None:
+    _extrair_tabela("chamado_sla")
+
+
+@app.timer_trigger(schedule=AGENDAMENTO, arg_name="myTimer", run_on_startup=False, use_monitor=False)
+def extract_chamado_status_historico(myTimer: func.TimerRequest) -> None:
+    _extrair_tabela("chamado_status_historico")
+
+
+@app.timer_trigger(schedule=AGENDAMENTO, arg_name="myTimer", run_on_startup=False, use_monitor=False)
+def extract_cliente_organizacao(myTimer: func.TimerRequest) -> None:
+    _extrair_tabela("cliente_organizacao")
+
+
+@app.timer_trigger(schedule=AGENDAMENTO, arg_name="myTimer", run_on_startup=False, use_monitor=False)
+def extract_csat_avaliacao(myTimer: func.TimerRequest) -> None:
+    _extrair_tabela("csat_avaliacao")
+
+
+@app.timer_trigger(schedule=AGENDAMENTO, arg_name="myTimer", run_on_startup=False, use_monitor=False)
+def extract_fila(myTimer: func.TimerRequest) -> None:
+    _extrair_tabela("fila")
+
+
+@app.timer_trigger(schedule=AGENDAMENTO, arg_name="myTimer", run_on_startup=False, use_monitor=False)
+def extract_sla(myTimer: func.TimerRequest) -> None:
+    _extrair_tabela("sla")
+
+
+@app.timer_trigger(schedule=AGENDAMENTO, arg_name="myTimer", run_on_startup=False, use_monitor=False)
+def extract_solicitante(myTimer: func.TimerRequest) -> None:
+    _extrair_tabela("solicitante")
