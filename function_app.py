@@ -31,7 +31,8 @@ def _get_connection() -> pyodbc.Connection:
     return pyodbc.connect(conn_str)
 
 
-def _extrair_tabela(nome_tabela: str) -> None:
+def _extrair
+_tabela(nome_tabela: str) -> None:
     # O nome da tabela vem fixo de cada function
     logging.info(f"Iniciando a extração da tabela itsm.{nome_tabela}...")
 
