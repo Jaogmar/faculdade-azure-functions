@@ -35,7 +35,7 @@ As credenciais do banco **não** ficam no código. Elas são lidas das variávei
 
 | Variável | Descrição |
 | --- | --- |
-| `DB_HOST` | Servidor.SQL (ex.: `<servidor>.database.windows.net`) |
+| `DB_HOST` | Servidor..SQL (ex.: `<servidor>.database.windows.net`) |
 | `DB_NAME` | Nome do banco |
 | `DB_USER` | Usuário |
 | `DB_PASSWORD` | Senha |
