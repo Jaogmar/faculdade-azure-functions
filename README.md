@@ -14,7 +14,7 @@ Projeto da faculdade explorando as Azure Functions desenvolvidas em **Python**.
 
 ## Functions
 
-Todas as functions estão em [`function_app.py`](function_app.py). Cada uma é um Timer trigger que roda a cada 5 minutos (`0 */5 * * * *`), extrai uma tabela do schema `itsm` e registra os registros no log.
+Todas as functions estão em [`function_app.py`](function_app.py). Cada uma é um Timer trigger que roda a cada 5 minutos (`0 */5 * * * *`), extrai uma tabela do schema `itsm` e grava os registros em JSON no container `bronze` do Data Lake, em `itsm/<tabela>/ano=AAAA/mes=MM/dia=DD/<tabela>_AAAAMMDDTHHMMSSZ.json`.
 
 | Function | Gatilho | Tabela |
 | --- | --- | --- |
@@ -39,6 +39,8 @@ As credenciais do banco **não** ficam no código. Elas são lidas das variávei
 | `DB_NAME` | Nome do banco |
 | `DB_USER` | Usuário |
 | `DB_PASSWORD` | Senha |
+| `DATALAKE_CONNECTION_STRING` | Connection string da conta do Data Lake (container `bronze`) |
+| `DATALAKE_ACCOUNT_URL` | Alternativa: `https://<conta>.blob.core.windows.net` com identidade gerenciada (role *Storage Blob Data Contributor*) |
 
 - **Local:** copie `local.settings.json.example` para `local.settings.json` (que está no `.gitignore`) e preencha os valores.
 - **Azure:** configure em *Function App → Settings → Environment variables (App settings)*.

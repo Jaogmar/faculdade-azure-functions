@@ -1,9 +1,12 @@
-﻿import json
+import json
 import logging
 import os
+from datetime import UTC, datetime
 
 import azure.functions as func
 import pyodbc
+from azure.core.exceptions import AzureError
+from azure.storage.blob import BlobServiceClient
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +14,9 @@ app = func.FunctionApp()
 
 VARIAVEIS_BANCO = ("DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD")
 AGENDAMENTO = "0 */5 * * * *"  # a cada 5 minutos
+
+CONTAINER_BRONZE = "bronze"
+FONTE = "itsm"
 
 
 def _get_connection() -> pyodbc.Connection:
@@ -33,6 +39,43 @@ def _get_connection() -> pyodbc.Connection:
         "Connection Timeout=30;"
     )
     return pyodbc.connect(conn_str)
+
+
+def _get_container_client():
+    # Conta do Data Lake: connection string (DATALAKE_CONNECTION_STRING) ou
+    # URL da conta + identidade gerenciada (DATALAKE_ACCOUNT_URL)
+    conn_str = os.getenv("DATALAKE_CONNECTION_STRING")
+    if conn_str:
+        service = BlobServiceClient.from_connection_string(conn_str)
+    else:
+        account_url = os.getenv("DATALAKE_ACCOUNT_URL")
+        if not account_url:
+            raise RuntimeError(
+                "Configure DATALAKE_CONNECTION_STRING ou DATALAKE_ACCOUNT_URL"
+            )
+        from azure.identity import DefaultAzureCredential
+
+        service = BlobServiceClient(account_url, credential=DefaultAzureCredential())
+    return service.get_container_client(CONTAINER_BRONZE)
+
+
+def _caminho_blob(entidade: str, agora: datetime) -> str:
+    # bronze/itsm/<entidade>/ano=YYYY/mes=MM/dia=DD/<entidade>_YYYYMMDDTHHMMSSZ.json
+    return (
+        f"{FONTE}/{entidade}/"
+        f"ano={agora:%Y}/mes={agora:%m}/dia={agora:%d}/"
+        f"{entidade}_{agora:%Y%m%dT%H%M%SZ}.json"
+    )
+
+
+def _salvar_bronze(nome_tabela: str, registros: list[dict]) -> str:
+    agora = datetime.now(UTC)
+    caminho = _caminho_blob(nome_tabela, agora)
+    conteudo = json.dumps(registros, default=str, ensure_ascii=False)
+    _get_container_client().upload_blob(
+        name=caminho, data=conteudo.encode("utf-8"), overwrite=True
+    )
+    return caminho
 
 
 def _extrair_tabela(nome_tabela: str) -> None:
@@ -59,14 +102,17 @@ def _extrair_tabela(nome_tabela: str) -> None:
     finally:
         conn.close()
 
-    for row in rows:
-        registro = dict(zip(colunas, row))
-        logger.info(
-            f"itsm.{nome_tabela}: {json.dumps(registro, default=str, ensure_ascii=False)}"
-        )
+    registros = [dict(zip(colunas, row)) for row in rows]
+
+    try:
+        caminho = _salvar_bronze(nome_tabela, registros)
+    except (RuntimeError, AzureError) as e:
+        logger.error(f"Erro ao salvar itsm.{nome_tabela} no container bronze: {e}")
+        return
 
     logger.info(
-        f"Extração da tabela itsm.{nome_tabela} concluída: {len(rows)} registros."
+        f"Extração da tabela itsm.{nome_tabela} concluída: "
+        f"{len(registros)} registros salvos em {CONTAINER_BRONZE}/{caminho}."
     )
 
 
