@@ -39,6 +39,10 @@ As credenciais do banco **não** ficam no código. Elas são lidas das variávei
 | `DB_NAME` | Nome do banco |
 | `DB_USER` | Usuário |
 | `DB_PASSWORD` | Senha |
+| `DEST_DB_HOST` | Servidor SQL de destino (carga silver) |
+| `DEST_DB_NAME` | Nome do banco de destino |
+| `DEST_DB_USER` | Usuário do banco de destino |
+| `DEST_DB_PASSWORD` | Senha do banco de destino |
 | `DATALAKE_CONNECTION_STRING` | Connection string da conta do Data Lake (container `bronze`) |
 | `DATALAKE_ACCOUNT_URL` | Alternativa: `https://<conta>.blob.core.windows.net` com identidade gerenciada (role *Storage Blob Data Contributor*) |
 

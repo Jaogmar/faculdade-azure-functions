@@ -8,6 +8,10 @@
     "DB_NAME": "<banco>",
     "DB_USER": "<usuario>",
     "DB_PASSWORD": "<senha>",
+    "DEST_DB_HOST": "<servidor-destino>.database.windows.net",
+    "DEST_DB_NAME": "<banco-destino>",
+    "DEST_DB_USER": "<usuario-destino>",
+    "DEST_DB_PASSWORD": "<senha-destino>",
     "DATALAKE_CONNECTION_STRING": "<connection string da conta adlstaprbgabrielfagundes>"
   }
 }

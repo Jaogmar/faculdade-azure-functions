@@ -8,6 +8,8 @@ import pyodbc
 from azure.core.exceptions import AzureError
 from azure.storage.blob import BlobServiceClient
 
+from carga import popular_tabelas
+
 logger = logging.getLogger(__name__)
 
 app = func.FunctionApp()
@@ -184,3 +186,15 @@ def extract_sla(myTimer: func.TimerRequest) -> None:
 )
 def extract_solicitante(myTimer: func.TimerRequest) -> None:
     _extrair_tabela("solicitante")
+
+
+@app.timer_trigger(
+    schedule="0 0 6 * * *", arg_name="myTimer", run_on_startup=False, use_monitor=False
+)
+def popular_destino(myTimer: func.TimerRequest) -> None:
+    try:
+        container = _get_container_client()
+    except RuntimeError as e:
+        logger.error(str(e))
+        return
+    popular_tabelas(container, FONTE)
